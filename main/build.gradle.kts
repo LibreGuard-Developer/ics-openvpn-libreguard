@@ -1,4 +1,6 @@
-import com.android.build.gradle.api.ApplicationVariant
+import com.android.build.gradle.api.LibraryVariant
+import java.util.Locale
+import org.gradle.api.tasks.compile.JavaCompile
 
 /*
  * Copyright (c) 2012-2016 Arne Schwabe
@@ -6,7 +8,7 @@ import com.android.build.gradle.api.ApplicationVariant
  */
 
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.library")
     alias(libs.plugins.kotlin.android)
     id("checkstyle")
 }
@@ -25,19 +27,14 @@ android {
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 35
-        //targetSdkPreview = "UpsideDownCake"
-        versionCode = 216
-        versionName = "0.7.61"
+        // Fallback for ${applicationId} used in library manifest (overridden by base app)
+        manifestPlaceholders += mapOf("applicationId" to "de.blinkt.openvpn")
         externalNativeBuild {
             cmake {
                 //arguments+= "-DCMAKE_VERBOSE_MAKEFILE=1"
             }
         }
     }
-
-
-    //testOptions.unitTests.isIncludeAndroidResources = true
 
     externalNativeBuild {
         cmake {
@@ -48,51 +45,11 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDirs("src/main/assets", "build/ovpnassets")
-
         }
-
-        create("ui") {
-        }
-
-        create("skeleton") {
-        }
-
-        getByName("debug") {
-        }
-
-        getByName("release") {
-        }
-    }
-
-    signingConfigs {
-        create("release") {
-            // ~/.gradle/gradle.properties
-            val keystoreFile: String? by project
-            storeFile = keystoreFile?.let { file(it) }
-            val keystorePassword: String? by project
-            storePassword = keystorePassword
-            val keystoreAliasPassword: String? by project
-            keyPassword = keystoreAliasPassword
-            val keystoreAlias: String? by project
-            keyAlias = keystoreAlias
-            enableV1Signing = true
-            enableV2Signing = true
-        }
-
-        create("releaseOvpn2") {
-            // ~/.gradle/gradle.properties
-            val keystoreO2File: String? by project
-            storeFile = keystoreO2File?.let { file(it) }
-            val keystoreO2Password: String? by project
-            storePassword = keystoreO2Password
-            val keystoreO2AliasPassword: String? by project
-            keyPassword = keystoreO2AliasPassword
-            val keystoreO2Alias: String? by project
-            keyAlias = keystoreO2Alias
-            enableV1Signing = true
-            enableV2Signing = true
-        }
-
+        create("ui") { }
+        create("skeleton") { }
+        getByName("debug") { }
+        getByName("release") { }
     }
 
     lint {
@@ -101,42 +58,13 @@ android {
         disable += setOf("MissingTranslation", "UnsafeNativeCodeLocation")
     }
 
-
     flavorDimensions += listOf("implementation", "ovpnimpl")
 
     productFlavors {
-        create("ui") {
-            dimension = "implementation"
-        }
-
-        create("skeleton") {
-            dimension = "implementation"
-        }
-
-        create("ovpn23")
-        {
-            dimension = "ovpnimpl"
-            buildConfigField("boolean", "openvpn3", "true")
-        }
-
-        create("ovpn2")
-        {
-            dimension = "ovpnimpl"
-            versionNameSuffix = "-o2"
-            buildConfigField("boolean", "openvpn3", "false")
-        }
-    }
-
-    buildTypes {
-        getByName("release") {
-            if (project.hasProperty("icsopenvpnDebugSign")) {
-                logger.warn("property icsopenvpnDebugSign set, using debug signing for release")
-                signingConfig = android.signingConfigs.getByName("debug")
-            } else {
-                productFlavors["ovpn23"].signingConfig = signingConfigs.getByName("release")
-                productFlavors["ovpn2"].signingConfig = signingConfigs.getByName("releaseOvpn2")
-            }
-        }
+        create("ui") { dimension = "implementation" }
+        create("skeleton") { dimension = "implementation" }
+        create("ovpn23") { dimension = "ovpnimpl"; buildConfigField("boolean", "openvpn3", "true") }
+        create("ovpn2") { dimension = "ovpnimpl"; buildConfigField("boolean", "openvpn3", "false") }
     }
 
     compileOptions {
@@ -144,97 +72,98 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
-            isUniversalApk = true
-        }
-    }
+    // Do not build UI flavor variants in this module
+}
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
-    }
-
-    bundle {
-        codeTransparency {
-            signing {
-                val keystoreTPFile: String? by project
-                storeFile = keystoreTPFile?.let { file(it) }
-                val keystoreTPPassword: String? by project
-                storePassword = keystoreTPPassword
-                val keystoreTPAliasPassword: String? by project
-                keyPassword = keystoreTPAliasPassword
-                val keystoreTPAlias: String? by project
-                keyAlias = keystoreTPAlias
-
-                if (keystoreTPFile?.isEmpty() ?: true)
-                    println("keystoreTPFile not set, disabling transparency signing")
-                if (keystoreTPPassword?.isEmpty() ?: true)
-                    println("keystoreTPPassword not set, disabling transparency signing")
-                if (keystoreTPAliasPassword?.isEmpty() ?: true)
-                    println("keystoreTPAliasPassword not set, disabling transparency signing")
-                if (keystoreTPAlias?.isEmpty() ?: true)
-                    println("keyAlias not set, disabling transparency signing")
-
-            }
-        }
+androidComponents {
+    // Disable all variants that include the implementation=ui flavor
+    beforeVariants(selector().withFlavor("implementation" to "ui")) { variantBuilder ->
+        variantBuilder.enable = false
     }
 }
 
 var swigcmd = "swig"
-// Workaround for macOS(arm64) and macOS(intel) since it otherwise does not find swig and
-// I cannot get the Exec task to respect the PATH environment :(
 if (file("/opt/homebrew/bin/swig").exists())
     swigcmd = "/opt/homebrew/bin/swig"
 else if (file("/usr/local/bin/swig").exists())
     swigcmd = "/usr/local/bin/swig"
 
-
 fun registerGenTask(variantName: String, variantDirName: String): File {
     val baseDir = File(buildDir, "generated/source/ovpn3swig/${variantDirName}")
     val genDir = File(baseDir, "net/openvpn/ovpn3")
-
-    tasks.register<Exec>("generateOpenVPN3Swig${variantName}")
-    {
-
-        doFirst {
-            mkdir(genDir)
-        }
+    tasks.register<Exec>("generateOpenVPN3Swig${variantName}") {
+        doFirst { mkdir(genDir) }
         commandLine(listOf(swigcmd, "-outdir", genDir, "-outcurrentdir", "-c++", "-java", "-package", "net.openvpn.ovpn3",
-                "-Isrc/main/cpp/openvpn3/client", "-Isrc/main/cpp/openvpn3/",
-                "-DOPENVPN_PLATFORM_ANDROID",
-                "-o", "${genDir}/ovpncli_wrap.cxx", "-oh", "${genDir}/ovpncli_wrap.h",
-                "src/main/cpp/openvpn3/client/ovpncli.i"))
-        inputs.files( "src/main/cpp/openvpn3/client/ovpncli.i")
-        outputs.dir( genDir)
-
+            "-Isrc/main/cpp/openvpn3/client", "-Isrc/main/cpp/openvpn3/",
+            "-DOPENVPN_PLATFORM_ANDROID",
+            "-o", "${genDir}/ovpncli_wrap.cxx", "-oh", "${genDir}/ovpncli_wrap.h",
+            "src/main/cpp/openvpn3/client/ovpncli.i"))
+        inputs.files("src/main/cpp/openvpn3/client/ovpncli.i")
+        outputs.dir(genDir)
     }
     return baseDir
 }
 
-android.applicationVariants.all(object : Action<ApplicationVariant> {
-    override fun execute(variant: ApplicationVariant) {
+fun sanitizeAidlJavaFileHeader(file: File) {
+    val original = file.readText()
+    val pkgIdx = original.indexOf("\npackage ")
+    val headEnd = if (pkgIdx >= 0) pkgIdx else original.indexOf("package ")
+    val fixed = if (headEnd > 0) {
+        val head = original.substring(0, headEnd).replace('\\', '/').replace("\r\n", "\n")
+        head + original.substring(headEnd)
+    } else {
+        val start = original.indexOf("/*")
+        val end = original.indexOf("*/", startIndex = if (start >= 0) start else 0)
+        if (start == 0 && end > start) {
+            val head = original.substring(0, end + 2).replace('\\', '/').replace("\r\n", "\n")
+            head + original.substring(end + 2)
+        } else original
+    }
+    if (fixed != original) file.writeText(fixed)
+}
+
+fun registerSanitizeAidlTask(variant: LibraryVariant) {
+    val capName = variant.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+    val aidlRootDir = File(buildDir, "generated/aidl_source_output_dir")
+    val sanitizeTask = tasks.register("sanitizeAidlUnicode${capName}") {
+        doLast {
+            if (aidlRootDir.exists()) {
+                fileTree(aidlRootDir).matching { include("**/*.java") }.files.forEach { f ->
+                    sanitizeAidlJavaFileHeader(f)
+                }
+            }
+        }
+    }
+    val aidlTaskName = "compile${capName}Aidl"
+    val javacTaskName = "compile${capName}JavaWithJavac"
+    tasks.matching { it.name == aidlTaskName }.configureEach { finalizedBy(sanitizeTask) }
+    tasks.matching { it.name == javacTaskName }.configureEach {
+        dependsOn(sanitizeTask)
+        doFirst {
+            if (aidlRootDir.exists()) {
+                fileTree(aidlRootDir).matching { include("**/*.java") }.files.forEach { f ->
+                    sanitizeAidlJavaFileHeader(f)
+                }
+            }
+        }
+    }
+}
+
+android.libraryVariants.all(object : Action<LibraryVariant> {
+    override fun execute(variant: LibraryVariant) {
         val sourceDir = registerGenTask(variant.name, variant.baseName.replace("-", "/"))
         val task = tasks.named("generateOpenVPN3Swig${variant.name}").get()
-
+        @Suppress("DEPRECATION")
         variant.registerJavaGeneratingTask(task, sourceDir)
+        registerSanitizeAidlTask(variant)
     }
 })
 
-
 dependencies {
-    // https://maven.google.com/web/index.html
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.core.ktx)
-
     uiImplementation(libs.android.view.material)
     uiImplementation(libs.androidx.activity)
     uiImplementation(libs.androidx.activity.ktx)
@@ -253,7 +182,6 @@ dependencies {
     uiImplementation(libs.kotlin)
     uiImplementation(libs.mpandroidchart)
     uiImplementation(libs.square.okhttp)
-
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin)
@@ -263,3 +191,15 @@ dependencies {
 
 fun DependencyHandler.uiImplementation(dependencyNotation: Any): Dependency? =
     add("uiImplementation", dependencyNotation)
+
+// Globally ensure AIDL header sanitization runs before any Java compilation
+tasks.withType(JavaCompile::class.java).configureEach {
+    doFirst {
+        val aidlRootDir = File(project.buildDir, "generated/aidl_source_output_dir")
+        if (aidlRootDir.exists()) {
+            fileTree(aidlRootDir).matching { include("**/*.java") }.files.forEach { f ->
+                sanitizeAidlJavaFileHeader(f)
+            }
+        }
+    }
+}
