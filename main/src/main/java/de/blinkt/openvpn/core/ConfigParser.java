@@ -26,7 +26,7 @@ import de.blinkt.openvpn.VpnProfile;
 public class ConfigParser {
 
     // This value was originally "converted Profile"
-    public static final String CONVERTED_PROFILE = "ShadowLink";
+    public static final String CONVERTED_PROFILE = "LibreGuard";
     final String[] unsupportedOptions = {"config",
             "tls-server"
 
