@@ -26,9 +26,9 @@ android {
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
+        manifestPlaceholders += mapOf("applicationId" to "de.blinkt.openvpn")
         minSdk = 21
         // Fallback for ${applicationId} used in library manifest (overridden by base app)
-        manifestPlaceholders += mapOf("applicationId" to "de.blinkt.openvpn")
         externalNativeBuild {
             cmake {
                 //arguments+= "-DCMAKE_VERBOSE_MAKEFILE=1"
