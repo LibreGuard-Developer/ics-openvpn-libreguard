@@ -1,15 +1,12 @@
-ATTENTION
-================
-Before doing anything, please read the first FAQ point in this file, especially if
-you plan to build commercial software from this client. Also make sure you
-understand the licenses of the code. OpenVPN for Android is GPL-licensed. You
-_CANNOT_ build a closed sourced custom UI application without acquiring a different
-(paid) license for UI code.
+NOTE TO OTHER DEVELOPERS
+========================
+This repository is a fork of the upstream `ics-openvpn` project and is used as
+part of the LibreGuard VPN app.
 
-The use of the AIDL API to control OpenVPN for Android from an external app is 
-not subject to the license. The remoteExample project is licensed under the Apache 2.0 license.
+Original upstream repository:
+https://github.com/schwabe/ics-openvpn
 
-When in doubt, mail me about it.
+The remainder of this document contains upstream build and usage notes.
 
 See the file todo.txt for ideas/not-yet-implemented features (and the bug tracker).
 
